@@ -1,0 +1,177 @@
+.latex-preview-tool {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.tool-header {
+  text-align: center;
+  color: white;
+  margin-bottom: 2rem;
+}
+
+.tool-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.tool-header p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.tool-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.input-section,
+.output-section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.section-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.clear-btn {
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+.clear-btn:hover {
+  background: #ff5252;
+}
+
+.latex-input {
+  width: 100%;
+  min-height: 400px;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.latex-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.examples-section {
+  margin-top: 1.5rem;
+}
+
+.examples-section h3 {
+  margin-bottom: 0.75rem;
+  color: #555;
+  font-size: 1.1rem;
+}
+
+.example-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.example-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.example-btn:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.latex-output {
+  min-height: 400px;
+  padding: 1.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+  overflow-x: auto;
+}
+
+.latex-renderer {
+  line-height: 1.8;
+  color: #333;
+}
+
+.latex-renderer .katex-display {
+  margin: 1.5rem 0;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  font-style: italic;
+}
+
+/* Responsive design */
+@media (max-width: 1024px) {
+  .tool-container {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-header h1 {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .latex-preview-tool {
+    padding: 1rem;
+  }
+
+  .tool-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .tool-header p {
+    font-size: 1rem;
+  }
+}
+
