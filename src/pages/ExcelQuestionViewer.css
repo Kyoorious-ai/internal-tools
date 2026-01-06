@@ -1,0 +1,480 @@
+/* Main container */
+.excel-viewer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Upload Screen */
+.upload-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.upload-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.upload-header h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #00d4ff, #7b2cbf, #ff6b6b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  letter-spacing: -1px;
+}
+
+.upload-header p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.2rem;
+}
+
+.drop-zone {
+  width: 100%;
+  max-width: 600px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 4rem 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.drop-zone:hover,
+.drop-zone.dragging {
+  border-color: #00d4ff;
+  background: rgba(0, 212, 255, 0.05);
+  transform: scale(1.02);
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.upload-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.drop-zone h2 {
+  color: white;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.drop-zone p {
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-input-label {
+  background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+  color: white;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 212, 255, 0.3);
+}
+
+.file-input-label:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 212, 255, 0.4);
+}
+
+.file-types {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Viewer Header */
+.viewer-header {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(20px);
+  padding: 1.25rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-left h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00d4ff, #7b2cbf);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.file-badge,
+.count-badge {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.count-badge {
+  background: rgba(0, 212, 255, 0.2);
+  color: #00d4ff;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.column-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.column-selector label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.column-selector select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.column-selector select:focus {
+  outline: none;
+  border-color: #00d4ff;
+}
+
+.reset-btn {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.reset-btn:hover {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+/* Questions Container */
+.questions-container {
+  padding: 2rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Question Card */
+.question-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  transition: all 0.3s ease;
+}
+
+.question-card:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+}
+
+.question-number {
+  background: linear-gradient(135deg, #7b2cbf, #00d4ff);
+  padding: 2rem 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 80px;
+}
+
+.question-number span {
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+}
+
+.question-content {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Question Metadata */
+.question-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.meta-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.meta-key {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.meta-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* LaTeX Comparison */
+.latex-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.latex-panel {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.panel-header {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.panel-icon {
+  font-size: 1.1rem;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.raw-panel .panel-header {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.raw-panel .panel-header h3 {
+  color: #ffc107;
+}
+
+.rendered-panel .panel-header {
+  background: rgba(0, 212, 255, 0.1);
+}
+
+.rendered-panel .panel-header h3 {
+  color: #00d4ff;
+}
+
+.panel-content {
+  padding: 1.25rem;
+  min-height: 120px;
+}
+
+.raw-code {
+  margin: 0;
+  padding: 0;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: transparent;
+}
+
+/* Editable LaTeX textarea */
+.raw-code-editor {
+  width: 100%;
+  min-height: 150px;
+  padding: 0;
+  margin: 0;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.95);
+  background: transparent;
+  border: none;
+  resize: vertical;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.raw-code-editor::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.raw-code-editor:focus {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 0.5rem;
+  margin: -0.5rem;
+  width: calc(100% + 1rem);
+}
+
+/* Badges */
+.editable-badge,
+.live-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.editable-badge {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.live-badge {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.rendered-panel .panel-content {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 0 0 16px 16px;
+  color: #1a1a2e;
+}
+
+.rendered-panel .latex-renderer {
+  line-height: 1.8;
+  font-size: 1.05rem;
+}
+
+.empty-content {
+  color: rgba(0, 0, 0, 0.4);
+  font-style: italic;
+}
+
+.latex-error {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+/* KaTeX styling for rendered panel */
+.rendered-panel .katex-display {
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .latex-comparison {
+    grid-template-columns: 1fr;
+  }
+  
+  .viewer-header {
+    padding: 1rem;
+  }
+  
+  .header-left h1 {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .question-card {
+    flex-direction: column;
+  }
+  
+  .question-number {
+    padding: 1rem;
+    min-width: auto;
+  }
+  
+  .questions-container {
+    padding: 1rem;
+  }
+  
+  .upload-header h1 {
+    font-size: 2rem;
+  }
+  
+  .drop-zone {
+    padding: 2rem 1rem;
+  }
+}
+

@@ -1,11 +1,11 @@
 import React from 'react';
-import LatexPreviewTool from './pages/LatexPreviewTool';
+import ExcelQuestionViewer from './pages/ExcelQuestionViewer';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <LatexPreviewTool />
+      <ExcelQuestionViewer />
     </div>
   );
 }

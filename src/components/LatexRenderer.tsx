@@ -6,6 +6,23 @@ interface LatexRendererProps {
   content: string;
 }
 
+// Error boundary wrapper for KaTeX components
+const SafeInlineMath: React.FC<{ math: string }> = ({ math }) => {
+  try {
+    return <InlineMath math={math} />;
+  } catch (error) {
+    return <span className="latex-error" title={`Error: ${error}`}>${math}$</span>;
+  }
+};
+
+const SafeBlockMath: React.FC<{ math: string }> = ({ math }) => {
+  try {
+    return <BlockMath math={math} />;
+  } catch (error) {
+    return <div className="latex-error" title={`Error: ${error}`}>$${math}$$</div>;
+  }
+};
+
 /**
  * LatexRenderer component that parses and renders LaTeX expressions
  * Supports:
@@ -69,7 +86,7 @@ const LatexRenderer: React.FC<LatexRendererProps> = ({ content }) => {
       {partsWithBlocks.map((part, idx) => {
         if (part.type === 'block') {
           return (
-            <BlockMath key={`block-${idx}`} math={part.content} />
+            <SafeBlockMath key={`block-${idx}`} math={part.content} />
           );
         }
 
@@ -119,7 +136,7 @@ const LatexRenderer: React.FC<LatexRendererProps> = ({ content }) => {
           }
           // Add inline math
           textParts.push(
-            <InlineMath key={`inline-${idx}-${inlineIdx}`} math={inline.content} />
+            <SafeInlineMath key={`inline-${idx}-${inlineIdx}`} math={inline.content} />
           );
           lastTextPos = inline.end;
         });
