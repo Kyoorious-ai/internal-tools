@@ -8,12 +8,19 @@ interface Question {
   [key: string]: string | number;
 }
 
+interface AIState {
+  prompt: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
 const ExcelQuestionViewer: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>('');
   const [isDragging, setIsDragging] = useState(false);
   const [questionTextColumn, setQuestionTextColumn] = useState<string>('');
+  const [aiStates, setAIStates] = useState<Record<number, AIState>>({});
 
   const processExcelFile = (file: File) => {
     const reader = new FileReader();
@@ -142,6 +149,71 @@ const ExcelQuestionViewer: React.FC = () => {
     );
   };
 
+  // Get AI state for a question
+  const getAIState = (questionId: number): AIState => {
+    return aiStates[questionId] || { prompt: '', isLoading: false, error: null };
+  };
+
+  // Update AI prompt for a question
+  const updateAIPrompt = (questionId: number, prompt: string) => {
+    setAIStates(prev => ({
+      ...prev,
+      [questionId]: { ...getAIState(questionId), prompt, error: null }
+    }));
+  };
+
+  // Call AI API to modify LaTeX
+  const handleAIModify = async (questionId: number, currentLatex: string) => {
+    const state = getAIState(questionId);
+    if (!state.prompt.trim() || state.isLoading) return;
+
+    // Set loading state
+    setAIStates(prev => ({
+      ...prev,
+      [questionId]: { ...state, isLoading: true, error: null }
+    }));
+
+    try {
+      const response = await fetch('http://localhost:3000/api/latex/modify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          latexCode: currentLatex,
+          modification: state.prompt
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Update the question text with the modified LaTeX
+      if (data.modifiedCode) {
+        updateQuestionText(questionId, data.modifiedCode);
+      }
+
+      // Clear prompt and loading state on success
+      setAIStates(prev => ({
+        ...prev,
+        [questionId]: { prompt: '', isLoading: false, error: null }
+      }));
+    } catch (error) {
+      // Set error state
+      setAIStates(prev => ({
+        ...prev,
+        [questionId]: { 
+          ...state, 
+          isLoading: false, 
+          error: error instanceof Error ? error.message : 'Failed to modify LaTeX'
+        }
+      }));
+    }
+  };
+
   // Render upload screen
   if (questions.length === 0) {
     return (
@@ -212,6 +284,7 @@ const ExcelQuestionViewer: React.FC = () => {
           const otherFields = Object.entries(question).filter(
             ([key]) => key !== 'id' && key !== questionTextColumn
           );
+          const aiState = getAIState(question.id);
 
           return (
             <div key={question.id} className="question-card">
@@ -231,6 +304,54 @@ const ExcelQuestionViewer: React.FC = () => {
                     ))}
                   </div>
                 )}
+
+                {/* AI Assistant */}
+                <div className="ai-assistant">
+                  <div className="ai-header">
+                    <span className="ai-icon">🤖</span>
+                    <h3>AI Assistant</h3>
+                    <span className="ai-badge">Modify with AI</span>
+                  </div>
+                  <div className="ai-input-container">
+                    <input
+                      type="text"
+                      className="ai-prompt-input"
+                      value={aiState.prompt}
+                      onChange={(e) => updateAIPrompt(question.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAIModify(question.id, questionText);
+                        }
+                      }}
+                      placeholder="Describe how to modify the LaTeX... (e.g., 'Add fractions', 'Convert to matrix form')"
+                      disabled={aiState.isLoading}
+                    />
+                    <button
+                      className={`ai-submit-btn ${aiState.isLoading ? 'loading' : ''}`}
+                      onClick={() => handleAIModify(question.id, questionText)}
+                      disabled={aiState.isLoading || !aiState.prompt.trim()}
+                    >
+                      {aiState.isLoading ? (
+                        <>
+                          <span className="spinner"></span>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <span className="btn-icon">✨</span>
+                          Apply
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {aiState.error && (
+                    <div className="ai-error">
+                      <span className="error-icon">⚠️</span>
+                      {aiState.error}
+                    </div>
+                  )}
+                </div>
 
                 <div className="latex-comparison">
                   <div className="latex-panel raw-panel">
