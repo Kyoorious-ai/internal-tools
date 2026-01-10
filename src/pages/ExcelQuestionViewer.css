@@ -185,6 +185,31 @@
   border-color: #00d4ff;
 }
 
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+}
+
+.save-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.save-icon {
+  font-size: 1rem;
+}
+
 .reset-btn {
   background: rgba(255, 107, 107, 0.2);
   color: #ff6b6b;
@@ -267,16 +292,45 @@
   border-radius: 8px;
   font-size: 0.85rem;
   display: flex;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.meta-item.editable {
+  padding: 0.3rem 0.5rem 0.3rem 0.8rem;
 }
 
 .meta-key {
   color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
 }
 
 .meta-value {
   color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
+}
+
+.meta-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.85rem;
+  font-weight: 500;
+  min-width: 80px;
+  max-width: 200px;
+  transition: all 0.2s;
+}
+
+.meta-input:focus {
+  outline: none;
+  border-color: rgba(0, 212, 255, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.meta-input:hover {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* LaTeX Comparison */
@@ -440,6 +494,52 @@
   overflow-x: auto;
 }
 
+/* LaTeX List Rendering */
+.latex-list {
+  margin: 1rem 0;
+  padding: 0;
+}
+
+.latex-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.latex-item-label {
+  font-weight: 600;
+  color: #7b2cbf;
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+
+.latex-item-content {
+  flex: 1;
+  line-height: 1.6;
+}
+
+.latex-block-math {
+  margin: 1rem 0;
+}
+
+.rendered-panel .latex-list-item {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.rendered-panel .latex-list-item:last-child {
+  border-bottom: none;
+}
+
+.rendered-panel .latex-item-label {
+  background: linear-gradient(135deg, #7b2cbf, #00d4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1rem;
+}
+
 /* AI Assistant */
 .ai-assistant {
   background: linear-gradient(135deg, rgba(123, 44, 191, 0.1), rgba(0, 212, 255, 0.1));
@@ -575,6 +675,53 @@
 }
 
 .error-icon {
+  font-size: 1rem;
+}
+
+/* Undo Button */
+.ai-undo-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 8px;
+}
+
+.undo-info {
+  color: #4caf50;
+  font-size: 0.9rem;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.undo-btn:hover {
+  background: rgba(255, 193, 7, 0.3);
+  transform: translateY(-1px);
+}
+
+.undo-icon {
   font-size: 1rem;
 }
 

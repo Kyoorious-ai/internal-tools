@@ -10,156 +10,257 @@ interface LatexRendererProps {
 const SafeInlineMath: React.FC<{ math: string }> = ({ math }) => {
   try {
     return <InlineMath math={math} />;
-  } catch (error) {
-    return <span className="latex-error" title={`Error: ${error}`}>${math}$</span>;
+  } catch {
+    return <span className="latex-error" title="LaTeX error">${math}$</span>;
   }
 };
 
 const SafeBlockMath: React.FC<{ math: string }> = ({ math }) => {
   try {
     return <BlockMath math={math} />;
-  } catch (error) {
-    return <div className="latex-error" title={`Error: ${error}`}>$${math}$$</div>;
+  } catch {
+    return <div className="latex-error" title="LaTeX error">$${math}$$</div>;
   }
 };
 
 /**
- * LatexRenderer component that parses and renders LaTeX expressions
- * Supports:
- * - Inline math: $...$ or \(...\)
- * - Block math: $$...$$ or \[...\]
+ * Convert LaTeX document commands to HTML
+ */
+const convertLatexToHtml = (text: string): string => {
+  let result = text;
+  
+  // Convert \begin{enumerate} ... \end{enumerate} to a marker
+  result = result.replace(/\\begin\{enumerate\}/g, '___ENUM_START___');
+  result = result.replace(/\\end\{enumerate\}/g, '___ENUM_END___');
+  
+  // Convert \begin{itemize} ... \end{itemize}
+  result = result.replace(/\\begin\{itemize\}/g, '___LIST_START___');
+  result = result.replace(/\\end\{itemize\}/g, '___LIST_END___');
+  
+  // Convert \item[(X)] to marked items
+  result = result.replace(/\\item\[([^\]]*)\]/g, '___ITEM_LABEL_$1___');
+  result = result.replace(/\\item/g, '___ITEM___');
+  
+  // Convert line breaks
+  result = result.replace(/\\\\/g, '___NEWLINE___');
+  result = result.replace(/\\newline/g, '___NEWLINE___');
+  
+  // Convert common text formatting
+  result = result.replace(/\\textbf\{([^}]*)\}/g, '___BOLD_START___$1___BOLD_END___');
+  result = result.replace(/\\textit\{([^}]*)\}/g, '___ITALIC_START___$1___ITALIC_END___');
+  result = result.replace(/\\underline\{([^}]*)\}/g, '___UNDERLINE_START___$1___UNDERLINE_END___');
+  
+  // Convert \text{} inside math to just the text (will be handled later)
+  result = result.replace(/\\text\{([^}]*)\}/g, '$1');
+  
+  // Convert \quad and \qquad to spaces
+  result = result.replace(/\\qquad/g, '    ');
+  result = result.replace(/\\quad/g, '  ');
+  
+  // Convert \, \; \: to thin spaces
+  result = result.replace(/\\[,;:]/g, ' ');
+  
+  return result;
+};
+
+/**
+ * Parse and render content with mixed LaTeX document commands and math
  */
 const LatexRenderer: React.FC<LatexRendererProps> = ({ content }) => {
   if (!content) return null;
 
-  // Regular expressions for LaTeX delimiters
-  const blockPattern = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
-
-  // First, find all block math expressions
-  const blockMatches: Array<{ start: number; end: number; content: string }> = [];
-  let match;
+  // First, convert LaTeX document commands to markers
+  const processedContent = convertLatexToHtml(content);
   
-  // Reset regex
-  blockPattern.lastIndex = 0;
-  while ((match = blockPattern.exec(content)) !== null) {
-    const mathContent = match[1] || match[2]; // $$...$$ or \[...\]
-    if (mathContent) {
-      blockMatches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        content: mathContent.trim()
-      });
-    }
-  }
-
-  // Reconstruct with block math placeholders
-  const partsWithBlocks: Array<{ type: 'text' | 'block'; content: string; originalIndex?: number }> = [];
-  let textStart = 0;
-
-  blockMatches
-    .sort((a, b) => a.start - b.start)
-    .forEach((block, idx) => {
-      if (block.start > textStart) {
-        partsWithBlocks.push({
-          type: 'text',
-          content: content.substring(textStart, block.start)
-        });
+  // Split into segments based on our markers and math delimiters
+  const renderContent = (text: string): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    let currentText = text;
+    let key = 0;
+    
+    // Process enumerate blocks
+    const enumParts = currentText.split(/(___ENUM_START___|___ENUM_END___|___LIST_START___|___LIST_END___)/);
+    
+    let inList = false;
+    let listItems: React.ReactNode[] = [];
+    
+    enumParts.forEach((part, partIdx) => {
+      if (part === '___ENUM_START___' || part === '___LIST_START___') {
+        inList = true;
+        listItems = [];
+        return;
       }
-      partsWithBlocks.push({
-        type: 'block',
-        content: block.content,
-        originalIndex: idx
-      });
-      textStart = block.end;
-    });
-
-  if (textStart < content.length) {
-    partsWithBlocks.push({
-      type: 'text',
-      content: content.substring(textStart)
-    });
-  }
-
-  // Render each part
-  return (
-    <div className="latex-renderer">
-      {partsWithBlocks.map((part, idx) => {
-        if (part.type === 'block') {
-          return (
-            <SafeBlockMath key={`block-${idx}`} math={part.content} />
+      
+      if (part === '___ENUM_END___' || part === '___LIST_END___') {
+        if (listItems.length > 0) {
+          result.push(
+            <div key={`list-${key++}`} className="latex-list">
+              {listItems}
+            </div>
           );
         }
-
-        // Process inline math in text parts
-        const textParts: Array<React.ReactNode> = [];
-        const textContent = part.content;
-        const inlineMatches: Array<{ start: number; end: number; content: string }> = [];
-
-        // Find inline math: $...$ (but not $$...$$)
-        // Use a pattern that avoids lookbehind for better compatibility
-        const inlinePattern2 = /\$(?!\$)([^$\n]+?)\$(?!\$)/g;
-        let inlineMatch;
-        while ((inlineMatch = inlinePattern2.exec(textContent)) !== null) {
-          // Check that it's not part of a block math ($$...$$)
-          const beforeChar = inlineMatch.index > 0 ? textContent[inlineMatch.index - 1] : '';
-          if (beforeChar !== '$') {
-            inlineMatches.push({
-              start: inlineMatch.index,
-              end: inlineMatch.index + inlineMatch[0].length,
-              content: inlineMatch[1].trim()
-            });
+        inList = false;
+        return;
+      }
+      
+      if (inList) {
+        // Parse items within the list
+        const itemParts = part.split(/(___ITEM_LABEL_[^_]*___|___ITEM___)/);
+        itemParts.forEach((itemPart, itemIdx) => {
+          if (itemPart.startsWith('___ITEM_LABEL_')) {
+            const label = itemPart.replace('___ITEM_LABEL_', '').replace('___', '');
+            // The content will be in the next part
+            return;
           }
+          if (itemPart === '___ITEM___') {
+            return;
+          }
+          
+          // Check if there was a label before this
+          const prevPart = itemParts[itemIdx - 1] || '';
+          let label = '';
+          if (prevPart.startsWith('___ITEM_LABEL_')) {
+            label = prevPart.replace('___ITEM_LABEL_', '').replace('___', '');
+          } else if (prevPart === '___ITEM___') {
+            label = '•';
+          }
+          
+          const trimmedContent = itemPart.trim();
+          if (trimmedContent && (label || itemIdx === 0)) {
+            listItems.push(
+              <div key={`item-${key++}`} className="latex-list-item">
+                {label && <span className="latex-item-label">({label})</span>}
+                <span className="latex-item-content">{renderInlineContent(trimmedContent)}</span>
+              </div>
+            );
+          }
+        });
+      } else {
+        // Regular text, not in a list
+        const trimmed = part.trim();
+        if (trimmed) {
+          result.push(<span key={`text-${key++}`}>{renderInlineContent(trimmed)}</span>);
         }
-
-        // Also find \(...\)
-        const parenPattern = /\\\(([\s\S]*?)\\\)/g;
-        while ((inlineMatch = parenPattern.exec(textContent)) !== null) {
-          inlineMatches.push({
-            start: inlineMatch.index,
-            end: inlineMatch.index + inlineMatch[0].length,
-            content: inlineMatch[1].trim()
-          });
-        }
-
-        // Sort and merge inline matches
-        inlineMatches.sort((a, b) => a.start - b.start);
-
-        let lastTextPos = 0;
-        inlineMatches.forEach((inline, inlineIdx) => {
-          // Add text before inline math
-          if (inline.start > lastTextPos) {
-            textParts.push(
-              <span key={`text-${idx}-${inlineIdx}`}>
-                {textContent.substring(lastTextPos, inline.start)}
+      }
+    });
+    
+    return result;
+  };
+  
+  // Render inline content (text with possible math)
+  const renderInlineContent = (text: string): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    let key = 0;
+    
+    // Handle newlines
+    let processedText = text.replace(/___NEWLINE___/g, '\n');
+    
+    // Handle text formatting
+    processedText = processedText
+      .replace(/___BOLD_START___/g, '<b>')
+      .replace(/___BOLD_END___/g, '</b>')
+      .replace(/___ITALIC_START___/g, '<i>')
+      .replace(/___ITALIC_END___/g, '</i>')
+      .replace(/___UNDERLINE_START___/g, '<u>')
+      .replace(/___UNDERLINE_END___/g, '</u>');
+    
+    // Find all math expressions
+    const mathPattern = /\$\$([\s\S]*?)\$\$|\$([^$\n]+?)\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)/g;
+    
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = mathPattern.exec(processedText)) !== null) {
+      // Add text before this match
+      if (match.index > lastIndex) {
+        const textBefore = processedText.substring(lastIndex, match.index);
+        result.push(...renderPlainText(textBefore, key));
+        key += 10;
+      }
+      
+      // Determine if block or inline math
+      const blockMath = match[1] || match[3]; // $$...$$ or \[...\]
+      const inlineMath = match[2] || match[4]; // $...$ or \(...\)
+      
+      if (blockMath) {
+        result.push(
+          <div key={`block-${key++}`} className="latex-block-math">
+            <SafeBlockMath math={blockMath.trim()} />
+          </div>
+        );
+      } else if (inlineMath) {
+        result.push(
+          <SafeInlineMath key={`inline-${key++}`} math={inlineMath.trim()} />
+        );
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < processedText.length) {
+      result.push(...renderPlainText(processedText.substring(lastIndex), key));
+    }
+    
+    return result;
+  };
+  
+  // Render plain text with line breaks and formatting
+  const renderPlainText = (text: string, startKey: number): React.ReactNode[] => {
+    const result: React.ReactNode[] = [];
+    let key = startKey;
+    
+    // Split by newlines
+    const lines = text.split('\n');
+    lines.forEach((line, lineIdx) => {
+      if (lineIdx > 0) {
+        result.push(<br key={`br-${key++}`} />);
+      }
+      
+      // Handle HTML-like formatting markers
+      if (line.includes('<b>') || line.includes('<i>') || line.includes('<u>')) {
+        // Parse simple HTML-like tags
+        const parts = line.split(/(<\/?[biu]>)/);
+        let bold = false;
+        let italic = false;
+        let underline = false;
+        
+        parts.forEach((part, partIdx) => {
+          if (part === '<b>') { bold = true; return; }
+          if (part === '</b>') { bold = false; return; }
+          if (part === '<i>') { italic = true; return; }
+          if (part === '</i>') { italic = false; return; }
+          if (part === '<u>') { underline = true; return; }
+          if (part === '</u>') { underline = false; return; }
+          
+          if (part) {
+            const style: React.CSSProperties = {};
+            if (bold) style.fontWeight = 'bold';
+            if (italic) style.fontStyle = 'italic';
+            if (underline) style.textDecoration = 'underline';
+            
+            result.push(
+              <span key={`fmt-${key++}`} style={Object.keys(style).length > 0 ? style : undefined}>
+                {part}
               </span>
             );
           }
-          // Add inline math
-          textParts.push(
-            <SafeInlineMath key={`inline-${idx}-${inlineIdx}`} math={inline.content} />
-          );
-          lastTextPos = inline.end;
         });
-
-        // Add remaining text
-        if (lastTextPos < textContent.length) {
-          textParts.push(
-            <span key={`text-${idx}-end`}>
-              {textContent.substring(lastTextPos)}
-            </span>
-          );
+      } else {
+        if (line) {
+          result.push(<span key={`line-${key++}`}>{line}</span>);
         }
+      }
+    });
+    
+    return result;
+  };
 
-        // If no inline math found, return text as is
-        if (textParts.length === 0) {
-          return <span key={`text-${idx}`}>{textContent}</span>;
-        }
-
-        return <span key={`text-part-${idx}`}>{textParts}</span>;
-      })}
+  return (
+    <div className="latex-renderer">
+      {renderContent(processedContent)}
     </div>
   );
 };
 
 export default LatexRenderer;
-

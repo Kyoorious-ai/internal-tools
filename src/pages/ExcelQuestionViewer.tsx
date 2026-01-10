@@ -14,6 +14,11 @@ interface AIState {
   error: string | null;
 }
 
+interface HistoryEntry {
+  previousText: string;
+  modificationPrompt: string;
+}
+
 const ExcelQuestionViewer: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
@@ -21,6 +26,7 @@ const ExcelQuestionViewer: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [questionTextColumn, setQuestionTextColumn] = useState<string>('');
   const [aiStates, setAIStates] = useState<Record<number, AIState>>({});
+  const [history, setHistory] = useState<Record<number, HistoryEntry | null>>({});
 
   const processExcelFile = (file: File) => {
     const reader = new FileReader();
@@ -138,15 +144,44 @@ const ExcelQuestionViewer: React.FC = () => {
     setQuestionTextColumn('');
   };
 
-  // Update question text when edited
-  const updateQuestionText = (questionId: number, newText: string) => {
+  // Update any field in a question
+  const updateQuestionField = (questionId: number, fieldName: string, newValue: string | number) => {
     setQuestions(prevQuestions => 
       prevQuestions.map(q => 
         q.id === questionId 
-          ? { ...q, [questionTextColumn]: newText }
+          ? { ...q, [fieldName]: newValue }
           : q
       )
     );
+  };
+
+  // Update question text when edited (shorthand for question text column)
+  const updateQuestionText = (questionId: number, newText: string) => {
+    updateQuestionField(questionId, questionTextColumn, newText);
+  };
+
+  // Save/Export to Excel
+  const saveToExcel = () => {
+    // Remove the internal 'id' field and prepare data for export
+    const exportData = questions.map(q => {
+      const { id, ...rest } = q;
+      return rest;
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Questions');
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const baseFileName = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
+    const newFileName = `${baseFileName}_edited_${timestamp}.xlsx`;
+    
+    // Trigger download
+    XLSX.writeFile(workbook, newFileName);
   };
 
   // Get AI state for a question
@@ -174,7 +209,10 @@ const ExcelQuestionViewer: React.FC = () => {
     }));
 
     try {
-      const response = await fetch('http://localhost:3000/api/latex/modify', {
+      // Get base URL from environment variable, fallback to localhost
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      
+      const response = await fetch(`${baseUrl}/api/latex/modify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,16 +229,28 @@ const ExcelQuestionViewer: React.FC = () => {
 
       const data = await response.json();
       
-      // Update the question text with the modified LaTeX
-      if (data.modifiedCode) {
+      // Check for success in response
+      if (data.success && data.modifiedCode) {
+        // Save current text to history before updating
+        setHistory(prev => ({
+          ...prev,
+          [questionId]: {
+            previousText: currentLatex,
+            modificationPrompt: state.prompt
+          }
+        }));
+        
+        // Update the question text with the modified LaTeX
         updateQuestionText(questionId, data.modifiedCode);
+        
+        // Clear prompt and loading state on success
+        setAIStates(prev => ({
+          ...prev,
+          [questionId]: { prompt: '', isLoading: false, error: null }
+        }));
+      } else {
+        throw new Error(data.error || 'Failed to modify LaTeX');
       }
-
-      // Clear prompt and loading state on success
-      setAIStates(prev => ({
-        ...prev,
-        [questionId]: { prompt: '', isLoading: false, error: null }
-      }));
     } catch (error) {
       // Set error state
       setAIStates(prev => ({
@@ -212,6 +262,24 @@ const ExcelQuestionViewer: React.FC = () => {
         }
       }));
     }
+  };
+
+  // Undo AI modification - revert to previous text
+  const handleUndo = (questionId: number) => {
+    const historyEntry = history[questionId];
+    if (historyEntry) {
+      updateQuestionText(questionId, historyEntry.previousText);
+      // Clear history after undo
+      setHistory(prev => ({
+        ...prev,
+        [questionId]: null
+      }));
+    }
+  };
+
+  // Get history for a question
+  const getHistory = (questionId: number): HistoryEntry | null => {
+    return history[questionId] || null;
   };
 
   // Render upload screen
@@ -272,6 +340,10 @@ const ExcelQuestionViewer: React.FC = () => {
               ))}
             </select>
           </div>
+          <button className="save-btn" onClick={saveToExcel}>
+            <span className="save-icon">💾</span>
+            Save to Excel
+          </button>
           <button className="reset-btn" onClick={resetFile}>
             Upload New File
           </button>
@@ -285,6 +357,7 @@ const ExcelQuestionViewer: React.FC = () => {
             ([key]) => key !== 'id' && key !== questionTextColumn
           );
           const aiState = getAIState(question.id);
+          const historyEntry = getHistory(question.id);
 
           return (
             <div key={question.id} className="question-card">
@@ -293,13 +366,18 @@ const ExcelQuestionViewer: React.FC = () => {
               </div>
               
               <div className="question-content">
-                {/* Other fields as metadata */}
+                {/* Other fields as editable metadata */}
                 {otherFields.length > 0 && (
                   <div className="question-meta">
                     {otherFields.map(([key, value]) => (
-                      <div key={key} className="meta-item">
+                      <div key={key} className="meta-item editable">
                         <span className="meta-key">{key}:</span>
-                        <span className="meta-value">{String(value)}</span>
+                        <input
+                          type="text"
+                          className="meta-input"
+                          value={String(value)}
+                          onChange={(e) => updateQuestionField(question.id, key, e.target.value)}
+                        />
                       </div>
                     ))}
                   </div>
@@ -349,6 +427,20 @@ const ExcelQuestionViewer: React.FC = () => {
                     <div className="ai-error">
                       <span className="error-icon">⚠️</span>
                       {aiState.error}
+                    </div>
+                  )}
+                  {historyEntry && (
+                    <div className="ai-undo-container">
+                      <span className="undo-info">
+                        ✓ Modified: "{historyEntry.modificationPrompt}"
+                      </span>
+                      <button
+                        className="undo-btn"
+                        onClick={() => handleUndo(question.id)}
+                      >
+                        <span className="undo-icon">↩️</span>
+                        Undo
+                      </button>
                     </div>
                   )}
                 </div>
