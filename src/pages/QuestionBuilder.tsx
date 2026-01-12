@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import LatexRenderer from '../components/LatexRenderer';
 import './QuestionBuilder.css';
@@ -41,6 +41,7 @@ const QuestionBuilder: React.FC = () => {
   const [nextId, setNextId] = useState(2);
   const [aiStates, setAIStates] = useState<Record<number, AIState>>({});
   const [history, setHistory] = useState<Record<number, HistoryEntry | null>>({});
+  const [dragOverStates, setDragOverStates] = useState<Record<number, boolean>>({});
 
   // Add a new question
   const addQuestion = () => {
@@ -186,6 +187,62 @@ const QuestionBuilder: React.FC = () => {
   // Get history for a question
   const getHistory = (questionId: number): HistoryEntry | null => {
     return history[questionId] || null;
+  };
+
+  // Handle file upload for diagram
+  const handleFileUpload = async (questionId: number, file: File) => {
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Convert file to data URL (base64)
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      updateQuestionField(questionId, 'diagram_url', dataUrl);
+    };
+    reader.onerror = () => {
+      alert('Error reading file. Please try again.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle file input change
+  const handleFileInputChange = (questionId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileUpload(questionId, file);
+    }
+    // Reset input value to allow selecting the same file again
+    e.target.value = '';
+  };
+
+  // Handle drag over
+  const handleDragOver = (questionId: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverStates(prev => ({ ...prev, [questionId]: true }));
+  };
+
+  // Handle drag leave
+  const handleDragLeave = (questionId: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverStates(prev => ({ ...prev, [questionId]: false }));
+  };
+
+  // Handle drop
+  const handleDrop = (questionId: number, e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverStates(prev => ({ ...prev, [questionId]: false }));
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileUpload(questionId, file);
+    }
   };
 
   // Export questions to Excel
@@ -341,8 +398,9 @@ const QuestionBuilder: React.FC = () => {
         ) : (
           questions.map((question, index) => {
             const questionText = String(question.text || '');
+            const answerText = String(question.answer || '');
             const otherFields = Object.entries(question).filter(
-              ([key]) => key !== 'id' && key !== 'text'
+              ([key]) => key !== 'id' && key !== 'text' && key !== 'answer'
             );
             const aiState = getAIState(question.id);
             const historyEntry = getHistory(question.id);
@@ -350,10 +408,10 @@ const QuestionBuilder: React.FC = () => {
             return (
               <div key={question.id} className="question-card">
                 <div className="question-header">
-                  <div className="question-number">
-                    <span>Q{index + 1}</span>
-                  </div>
-                  <div className="question-actions">
+                  <div className="question-number-container">
+                    <div className="question-number">
+                      <span>Q{index + 1}</span>
+                    </div>
                     <button
                       className="delete-btn"
                       onClick={() => deleteQuestion(question.id)}
@@ -367,18 +425,6 @@ const QuestionBuilder: React.FC = () => {
                 <div className="question-content">
                   {/* Metadata fields */}
                   <div className="question-meta">
-                    {/* Answer */}
-                    <div className="meta-item meta-item-wide">
-                      <label className="meta-label">Answer:</label>
-                      <textarea
-                        className="meta-textarea"
-                        value={String(question.answer || '')}
-                        onChange={(e) => updateQuestionField(question.id, 'answer', e.target.value)}
-                        placeholder="Enter answer (supports LaTeX)..."
-                        rows={2}
-                      />
-                    </div>
-
                     {/* Marks */}
                     <div className="meta-item">
                       <label className="meta-label">Marks:</label>
@@ -479,7 +525,7 @@ const QuestionBuilder: React.FC = () => {
                       />
                     </div>
 
-                    {/* Expected Has Diagram */}
+                    {/* Question Contains Diagram */}
                     <div className="meta-item meta-item-checkbox">
                       <label className="meta-checkbox-label">
                         <input
@@ -488,21 +534,55 @@ const QuestionBuilder: React.FC = () => {
                           checked={Boolean(question.expected_has_diagram)}
                           onChange={(e) => updateQuestionField(question.id, 'expected_has_diagram', e.target.checked)}
                         />
-                        <span>Expected Has Diagram</span>
+                        <span>Question has Diagram</span>
                       </label>
                     </div>
 
-                    {/* Diagram URL */}
-                    <div className="meta-item meta-item-wide">
-                      <label className="meta-label">Diagram URL:</label>
-                      <input
-                        type="url"
-                        className="meta-input"
-                        value={String(question.diagram_url || '')}
-                        onChange={(e) => updateQuestionField(question.id, 'diagram_url', e.target.value)}
-                        placeholder="https://example.com/diagram.png"
-                      />
-                    </div>
+                    {/* Diagram Upload - Only show when Question Contains Diagram is checked */}
+                    {question.expected_has_diagram && (
+                      <div className="meta-item meta-item-wide">
+                        <label className="meta-label">Diagram:</label>
+                        <div
+                          className={`diagram-upload-area ${dragOverStates[question.id] ? 'drag-over' : ''}`}
+                          onDragOver={(e) => handleDragOver(question.id, e)}
+                          onDragLeave={(e) => handleDragLeave(question.id, e)}
+                          onDrop={(e) => handleDrop(question.id, e)}
+                        >
+                          <input
+                            type="file"
+                            id={`diagram-input-${question.id}`}
+                            className="diagram-file-input"
+                            accept="image/*"
+                            onChange={(e) => handleFileInputChange(question.id, e)}
+                          />
+                          <label htmlFor={`diagram-input-${question.id}`} className="diagram-upload-label">
+                            {question.diagram_url ? (
+                              <div className="diagram-preview-container">
+                                <img src={question.diagram_url} alt="Diagram preview" className="diagram-preview" />
+                                <div className="diagram-overlay">
+                                  <span className="diagram-upload-text">Click to change image</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="diagram-upload-placeholder">
+                                <span className="diagram-upload-icon">+</span>
+                                <span className="diagram-upload-text">Drag and drop an image here or click to select</span>
+                                <span className="diagram-upload-hint">Supports PNG, JPG, GIF, and other image formats</span>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                        {question.diagram_url && (
+                          <button
+                            className="diagram-remove-btn"
+                            onClick={() => updateQuestionField(question.id, 'diagram_url', '')}
+                            type="button"
+                          >
+                            Remove image
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* AI Assistant */}
@@ -510,6 +590,10 @@ const QuestionBuilder: React.FC = () => {
                     <div className="ai-header">
                       <span className="ai-icon">🤖</span>
                       <h3>AI Assistant</h3>
+                      <select className="ai-target-dropdown" defaultValue="Question">
+                        <option value="Question">Question</option>
+                        <option value="Answer">Answer</option>
+                      </select>
                       <span className="ai-badge">Modify with AI</span>
                     </div>
                     <div className="ai-input-container">
@@ -571,7 +655,7 @@ const QuestionBuilder: React.FC = () => {
                     <div className="latex-panel raw-panel">
                       <div className="panel-header">
                         <span className="panel-icon">📝</span>
-                        <h3>Raw LaTeX Code</h3>
+                        <h3>Question (Raw LaTeX Code)</h3>
                         <span className="editable-badge">Editable</span>
                       </div>
                       <div className="panel-content">
@@ -588,7 +672,7 @@ const QuestionBuilder: React.FC = () => {
                     <div className="latex-panel rendered-panel">
                       <div className="panel-header">
                         <span className="panel-icon">✨</span>
-                        <h3>Rendered Output</h3>
+                        <h3>Question (Rendered Output)</h3>
                         <span className="live-badge">Live Preview</span>
                       </div>
                       <div className="panel-content">
@@ -599,6 +683,48 @@ const QuestionBuilder: React.FC = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Answer LaTeX Section */}
+                  <div className="latex-comparison">
+                    <div className="latex-panel raw-panel">
+                      <div className="panel-header">
+                        <span className="panel-icon">📝</span>
+                        <h3>Answer (Raw LaTeX Code)</h3>
+                        <span className="editable-badge">Editable</span>
+                      </div>
+                      <div className="panel-content">
+                        <textarea
+                          className="raw-code-editor"
+                          value={answerText}
+                          onChange={(e) => updateQuestionField(question.id, 'answer', e.target.value)}
+                          placeholder="Enter answer LaTeX code here... (e.g., $\frac{a}{b} + c = d$)"
+                          spellCheck={false}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="latex-panel rendered-panel">
+                      <div className="panel-header">
+                        <span className="panel-icon">✨</span>
+                        <h3>Answer (Rendered Output)</h3>
+                        <span className="live-badge">Live Preview</span>
+                      </div>
+                      <div className="panel-content">
+                        {answerText ? (
+                          <LatexRenderer content={answerText} />
+                        ) : (
+                          <div className="empty-content">No answer to render</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <div className="question-submit-container">
+                    <button className="question-submit-btn" type="button">
+                      Submit
+                    </button>
                   </div>
                 </div>
               </div>
