@@ -1,4 +1,4 @@
-name: Deploy Vite React App (DEV)
+name: Frontend CI/CD (DEV)
 
 on:
   push:
@@ -6,14 +6,14 @@ on:
       - dev
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -23,22 +23,23 @@ jobs:
 
       - name: Build Vite app
         run: npm run build
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_ENV: dev
 
       - name: Verify dist folder
-        run: |
-          ls -la
-          ls -la dist
+        run: ls -la dist
 
-      - name: Copy dist to EC2
+      - name: Upload dist to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "dist/*"
-          target: "/home/ec2-user/react-dist"
+          target: "/home/ec2-user/frontend-dist"
 
-      - name: Deploy on EC2
+      - name: Deploy frontend on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -46,7 +47,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             sudo rm -rf /usr/share/nginx/html/*
-            sudo cp -r /home/ec2-user/react-dist/dist/* /usr/share/nginx/html/
+            sudo cp -r /home/ec2-user/frontend-dist/dist/* /usr/share/nginx/html/
             sudo chown -R nginx:nginx /usr/share/nginx/html
             sudo chmod -R 755 /usr/share/nginx/html
             sudo systemctl reload nginx
