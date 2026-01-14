@@ -24,8 +24,8 @@ jobs:
       - name: Build Vite app
         run: npm run build
         env:
-          VITE_API_BASE_URL: /api
-          VITE_ENV: dev
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://3e1g8aha8a.execute-api.ap-south-1.amazonaws.com' }}
+          VITE_ENV: ${{ secrets.VITE_ENV || 'dev' }}
 
       - name: Verify dist folder
         run: ls -la dist
