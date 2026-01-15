@@ -126,10 +126,6 @@ function App() {
 
               <div className="nav-dropdown-menu">
                 <button className="dropdown-item">
-                  <span className="dropdown-item-icon">📊</span>
-                  Dashboard
-                </button>
-                <button className="dropdown-item">
                   <span className="dropdown-item-icon">📉</span>
                   Reports
                 </button>
