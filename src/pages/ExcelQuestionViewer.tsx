@@ -209,8 +209,8 @@ const ExcelQuestionViewer: React.FC = () => {
     }));
 
     try {
-      // Get base URL from environment variable, fallback to localhost
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      // Get base URL from environment variable, fallback to backend server
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://0.0.0.0:8000';
       
       const response = await fetch(`${baseUrl}/api/latex/modify`, {
         method: 'POST',
