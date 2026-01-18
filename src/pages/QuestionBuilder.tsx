@@ -39,7 +39,7 @@ const QuestionBuilder: React.FC = () => {
       medium_id: '', 
       expected_has_diagram: false, 
       diagram_url: '', 
-      question_type: '',
+      question_type: 'Descriptive',
       expected_time_minutes: ''
     }
   ]);
@@ -66,7 +66,7 @@ const QuestionBuilder: React.FC = () => {
       medium_id: '',
       expected_has_diagram: false,
       diagram_url: '',
-      question_type: '',
+      question_type: 'Descriptive',
       expected_time_minutes: ''
     };
     setQuestions(prev => [...prev, newQuestion]);
@@ -275,7 +275,7 @@ const QuestionBuilder: React.FC = () => {
         expected_has_diagram: rest.expected_has_diagram || false,
         diagram_url: rest.diagram_url || '',
         created_at: now,
-        question_type: rest.question_type || ''
+        question_type: rest.question_type || 'Descriptive'
       };
     });
 
@@ -315,7 +315,7 @@ const QuestionBuilder: React.FC = () => {
         expected_has_diagram: rest.expected_has_diagram || false,
         diagram_url: rest.diagram_url || '',
         created_at: now,
-        question_type: rest.question_type || ''
+        question_type: rest.question_type || 'Descriptive'
       };
     });
 
@@ -350,7 +350,7 @@ const QuestionBuilder: React.FC = () => {
         medium_id: '',
         expected_has_diagram: false,
         diagram_url: '',
-        question_type: '',
+        question_type: 'Descriptive',
         expected_time_minutes: ''
       }]);
       setAIStates({});
@@ -405,7 +405,7 @@ const QuestionBuilder: React.FC = () => {
         answer: question.answer,
         marks: parseFloat(String(question.marks)) || 0,
         difficulty: capitalizedDifficulty, // Must be "Easy", "Medium", or "Hard"
-        question_type: String(question.question_type).toLowerCase(), // "mcq" or "descriptive"
+        question_type: String(question.question_type) === 'Descriptive' ? 'descriptive' : 'mcq', // "descriptive" or "mcq"
         board_name: getNameFromId(question.board_id, 'boards'),
         class_name: getNameFromId(question.class_id, 'classes'),
         subject_name: getNameFromId(question.subject_id, 'subjects'),
@@ -561,13 +561,14 @@ const QuestionBuilder: React.FC = () => {
                     {/* Question Type */}
                     <div className="meta-item">
                       <label className="meta-label">Question Type:</label>
-                      <input
-                        type="text"
-                        className="meta-input"
-                        value={String(question.question_type || '')}
+                      <select
+                        className="meta-select"
+                        value={String(question.question_type || 'Descriptive')}
                         onChange={(e) => updateQuestionField(question.id, 'question_type', e.target.value)}
-                        placeholder="e.g., MCQ, Short Answer..."
-                      />
+                      >
+                        <option value="Descriptive">Descriptive</option>
+                        <option value="MCQ">MCQ</option>
+                      </select>
                     </div>
 
                     {/* Expected Time (minutes) */}
