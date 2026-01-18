@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import LatexRenderer from '../components/LatexRenderer';
+import { useDropdownData, getDisplayName, getItemValue } from '../hooks/useDropdownData';
 import './QuestionBuilder.css';
 
 interface Question {
@@ -21,6 +22,9 @@ interface HistoryEntry {
 }
 
 const QuestionBuilder: React.FC = () => {
+  // Fetch dropdown data from API
+  const { data: dropdownData, loading: dropdownLoading, error: dropdownError } = useDropdownData();
+
   const [questions, setQuestions] = useState<Question[]>([
     { 
       id: 1, 
@@ -35,13 +39,17 @@ const QuestionBuilder: React.FC = () => {
       medium_id: '', 
       expected_has_diagram: false, 
       diagram_url: '', 
-      question_type: '' 
+      question_type: '',
+      expected_time_minutes: ''
     }
   ]);
   const [nextId, setNextId] = useState(2);
   const [aiStates, setAIStates] = useState<Record<number, AIState>>({});
   const [history, setHistory] = useState<Record<number, HistoryEntry | null>>({});
   const [dragOverStates, setDragOverStates] = useState<Record<number, boolean>>({});
+  const [submitLoading, setSubmitLoading] = useState<Record<number, boolean>>({});
+  const [submitError, setSubmitError] = useState<Record<number, string | null>>({});
+  const [submitSuccess, setSubmitSuccess] = useState<Record<number, boolean>>({});
 
   // Add a new question
   const addQuestion = () => {
@@ -58,7 +66,8 @@ const QuestionBuilder: React.FC = () => {
       medium_id: '',
       expected_has_diagram: false,
       diagram_url: '',
-      question_type: ''
+      question_type: '',
+      expected_time_minutes: ''
     };
     setQuestions(prev => [...prev, newQuestion]);
     setNextId(prev => prev + 1);
@@ -116,8 +125,8 @@ const QuestionBuilder: React.FC = () => {
     }));
 
     try {
-      // Get base URL from environment variable, fallback to localhost
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      // Get base URL from environment variable, fallback to backend server
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://0.0.0.0:8000';
 
       const response = await fetch(`${baseUrl}/api/latex/modify`, {
         method: 'POST',
@@ -341,11 +350,107 @@ const QuestionBuilder: React.FC = () => {
         medium_id: '',
         expected_has_diagram: false,
         diagram_url: '',
-        question_type: ''
+        question_type: '',
+        expected_time_minutes: ''
       }]);
       setAIStates({});
       setHistory({});
+      setSubmitLoading({});
+      setSubmitError({});
+      setSubmitSuccess({});
       setNextId(2);
+    }
+  };
+
+  // Helper function to get name from ID in dropdown data
+  const getNameFromId = (id: string | number, type: 'boards' | 'classes' | 'subjects' | 'chapters' | 'mediums'): string => {
+    if (!id) return '';
+    const items = dropdownData[type] || [];
+    const item = items.find(item => String(item.id) === String(id));
+    return item ? getDisplayName(item) : '';
+  };
+
+  // Handle submit question to backend
+  const handleSubmitQuestion = async (questionId: number) => {
+    const question = questions.find(q => q.id === questionId);
+    if (!question) return;
+
+    // Validate required fields
+    if (!question.text || !question.answer || !question.marks || !question.difficulty || 
+        !question.question_type || !question.expected_time_minutes || !question.board_id || !question.class_id || 
+        !question.subject_id || !question.chapter_id || !question.medium_id) {
+      setSubmitError(prev => ({
+        ...prev,
+        [questionId]: 'Please fill in all required fields'
+      }));
+      return;
+    }
+
+    setSubmitLoading(prev => ({ ...prev, [questionId]: true }));
+    setSubmitError(prev => ({ ...prev, [questionId]: null }));
+    setSubmitSuccess(prev => ({ ...prev, [questionId]: false }));
+
+    try {
+      // Use separate backend for question creation (port 8000)
+      // Note: This is different from the dropdown API which uses port 3000
+      const questionCreationUrl = 'http://localhost:8000/api/v1/content/questionCreation';
+
+      // Map IDs to names for the API
+      // Note: difficulty must be capitalized (Easy, Medium, Hard) as per database constraint
+      const difficultyValue = String(question.difficulty);
+      const capitalizedDifficulty = difficultyValue.charAt(0).toUpperCase() + difficultyValue.slice(1).toLowerCase();
+      
+      const questionPayload = {
+        text: question.text,
+        answer: question.answer,
+        marks: parseFloat(String(question.marks)) || 0,
+        difficulty: capitalizedDifficulty, // Must be "Easy", "Medium", or "Hard"
+        question_type: String(question.question_type).toLowerCase(), // "mcq" or "descriptive"
+        board_name: getNameFromId(question.board_id, 'boards'),
+        class_name: getNameFromId(question.class_id, 'classes'),
+        subject_name: getNameFromId(question.subject_id, 'subjects'),
+        chapter_name: getNameFromId(question.chapter_id, 'chapters'),
+        medium_name: getNameFromId(question.medium_id, 'mediums'),
+        expected_time_minutes: parseFloat(String(question.expected_time_minutes)) || 1, // Must be > 0
+        has_diagram: Boolean(question.expected_has_diagram),
+        concept_names: [] // Optional, can be added later
+      };
+
+      console.log('Submitting question to:', questionCreationUrl);
+      console.log('Payload:', questionPayload);
+
+      const response = await fetch(questionCreationUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(questionPayload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `API error: ${response.status}` }));
+        throw new Error(errorData.detail || `Failed to create question: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setSubmitSuccess(prev => ({ ...prev, [questionId]: true }));
+        setSubmitError(prev => ({ ...prev, [questionId]: null }));
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSubmitSuccess(prev => ({ ...prev, [questionId]: false }));
+        }, 3000);
+      } else {
+        throw new Error('Failed to create question');
+      }
+    } catch (error) {
+      setSubmitError(prev => ({
+        ...prev,
+        [questionId]: error instanceof Error ? error.message : 'Failed to submit question'
+      }));
+    } finally {
+      setSubmitLoading(prev => ({ ...prev, [questionId]: false }));
     }
   };
 
@@ -465,65 +570,124 @@ const QuestionBuilder: React.FC = () => {
                       />
                     </div>
 
-                    {/* Board ID */}
+                    {/* Expected Time (minutes) */}
                     <div className="meta-item">
-                      <label className="meta-label">Board ID:</label>
+                      <label className="meta-label">Expected Time (minutes):</label>
                       <input
-                        type="text"
+                        type="number"
                         className="meta-input"
+                        value={String(question.expected_time_minutes || '')}
+                        onChange={(e) => updateQuestionField(question.id, 'expected_time_minutes', e.target.value)}
+                        placeholder="Enter expected time..."
+                        min="1"
+                        step="1"
+                      />
+                    </div>
+
+                    {/* Board */}
+                    <div className="meta-item">
+                      <label className="meta-label">Board:</label>
+                      <select
+                        className="meta-select"
                         value={String(question.board_id || '')}
                         onChange={(e) => updateQuestionField(question.id, 'board_id', e.target.value)}
-                        placeholder="Enter board ID..."
-                      />
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select Board...</option>
+                        {dropdownData.boards.map((board) => (
+                          <option key={board.id} value={getItemValue(board)}>
+                            {getDisplayName(board)}
+                          </option>
+                        ))}
+                      </select>
+                      {dropdownLoading && <span className="loading-text">Loading boards...</span>}
                     </div>
 
-                    {/* Class ID */}
+                    {/* Class */}
                     <div className="meta-item">
-                      <label className="meta-label">Class ID:</label>
-                      <input
-                        type="text"
-                        className="meta-input"
+                      <label className="meta-label">Class:</label>
+                      <select
+                        className="meta-select"
                         value={String(question.class_id || '')}
                         onChange={(e) => updateQuestionField(question.id, 'class_id', e.target.value)}
-                        placeholder="Enter class ID..."
-                      />
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select Class...</option>
+                        {dropdownData.classes.map((cls) => (
+                          <option key={cls.id} value={getItemValue(cls)}>
+                            {getDisplayName(cls)}
+                          </option>
+                        ))}
+                      </select>
+                      {dropdownLoading && <span className="loading-text">Loading classes...</span>}
                     </div>
 
-                    {/* Subject ID */}
+                    {/* Subject */}
                     <div className="meta-item">
-                      <label className="meta-label">Subject ID:</label>
-                      <input
-                        type="text"
-                        className="meta-input"
+                      <label className="meta-label">Subject:</label>
+                      <select
+                        className="meta-select"
                         value={String(question.subject_id || '')}
                         onChange={(e) => updateQuestionField(question.id, 'subject_id', e.target.value)}
-                        placeholder="Enter subject ID..."
-                      />
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select Subject...</option>
+                        {dropdownData.subjects.map((subject) => (
+                          <option key={subject.id} value={getItemValue(subject)}>
+                            {getDisplayName(subject)}
+                          </option>
+                        ))}
+                      </select>
+                      {dropdownLoading && <span className="loading-text">Loading subjects...</span>}
                     </div>
 
-                    {/* Chapter ID */}
+                    {/* Chapter */}
                     <div className="meta-item">
-                      <label className="meta-label">Chapter ID:</label>
-                      <input
-                        type="text"
-                        className="meta-input"
+                      <label className="meta-label">Chapter:</label>
+                      <select
+                        className="meta-select"
                         value={String(question.chapter_id || '')}
                         onChange={(e) => updateQuestionField(question.id, 'chapter_id', e.target.value)}
-                        placeholder="Enter chapter ID..."
-                      />
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select Chapter...</option>
+                        {dropdownData.chapters.map((chapter) => (
+                          <option key={chapter.id} value={getItemValue(chapter)}>
+                            {getDisplayName(chapter)}
+                          </option>
+                        ))}
+                      </select>
+                      {dropdownLoading && <span className="loading-text">Loading chapters...</span>}
                     </div>
 
-                    {/* Medium ID */}
+                    {/* Medium */}
                     <div className="meta-item">
-                      <label className="meta-label">Medium ID:</label>
-                      <input
-                        type="text"
-                        className="meta-input"
+                      <label className="meta-label">Medium:</label>
+                      <select
+                        className="meta-select"
                         value={String(question.medium_id || '')}
                         onChange={(e) => updateQuestionField(question.id, 'medium_id', e.target.value)}
-                        placeholder="Enter medium ID..."
-                      />
+                        disabled={dropdownLoading}
+                      >
+                        <option value="">Select Medium...</option>
+                        {dropdownData.mediums.map((medium) => (
+                          <option key={medium.id} value={getItemValue(medium)}>
+                            {getDisplayName(medium)}
+                          </option>
+                        ))}
+                      </select>
+                      {dropdownLoading && <span className="loading-text">Loading mediums...</span>}
                     </div>
+
+                    {/* Dropdown Error Message */}
+                    {dropdownError && (
+                      <div className="meta-item meta-item-wide">
+                        <div className="error-message" style={{ color: '#ff4444', padding: '8px', background: '#ffe6e6', borderRadius: '4px' }}>
+                          <span style={{ marginRight: '8px' }}>⚠️</span>
+                          Error loading dropdown data: {dropdownError}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Question Contains Diagram */}
                     <div className="meta-item meta-item-checkbox">
@@ -722,9 +886,35 @@ const QuestionBuilder: React.FC = () => {
 
                   {/* Submit Button */}
                   <div className="question-submit-container">
-                    <button className="question-submit-btn" type="button">
-                      Submit
+                    <button 
+                      className="question-submit-btn" 
+                      type="button"
+                      onClick={() => handleSubmitQuestion(question.id)}
+                      disabled={submitLoading[question.id]}
+                    >
+                      {submitLoading[question.id] ? (
+                        <>
+                          <span className="spinner"></span>
+                          Submitting...
+                        </>
+                      ) : submitSuccess[question.id] ? (
+                        '✓ Submitted'
+                      ) : (
+                        'Submit'
+                      )}
                     </button>
+                    {submitError[question.id] && (
+                      <div className="submit-error" style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255, 107, 107, 0.15)', border: '1px solid rgba(255, 107, 107, 0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '0.9rem' }}>
+                        <span style={{ marginRight: '0.5rem' }}>⚠️</span>
+                        {submitError[question.id]}
+                      </div>
+                    )}
+                    {submitSuccess[question.id] && (
+                      <div className="submit-success" style={{ marginTop: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(76, 175, 80, 0.15)', border: '1px solid rgba(76, 175, 80, 0.3)', borderRadius: '8px', color: '#4caf50', fontSize: '0.9rem' }}>
+                        <span style={{ marginRight: '0.5rem' }}>✓</span>
+                        Question created successfully!
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
